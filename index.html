@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ASHRAM · Mandala Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  @font-face{font-family:'Gaisyr';src:url('./fonts/ABCGaisyrMonoCyrillic-Book.otf') format('opentype');font-weight:400;font-display:swap;}
+  @font-face{font-family:'Monument';src:url('./fonts/ABCMonumentGroteskCyrillic-Regular.otf') format('opentype');font-weight:400;font-display:swap;}
+
+  :root{
+    --agni:#FF3800; --trickster:#FFE731; --terracota:#672909; --grey:#E0DCD9; --white:#FFFFFF;
+    --line:rgba(103,41,9,.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Monument','Inter',system-ui,sans-serif;
+    background:var(--grey); color:var(--terracota);
+    min-height:100vh; padding:28px;
+    display:flex; flex-direction:column; gap:22px;
+  }
+  .mono{font-family:'Gaisyr','Space Mono',ui-monospace,monospace; text-transform:uppercase; letter-spacing:-.01em;}
+  header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;}
+  header .logo{font-family:'Gaisyr','Space Mono',monospace; font-size:34px; letter-spacing:-.02em; color:var(--terracota);}
+  header .sub{font-size:14px; opacity:.7;}
+
+  .app{display:grid; grid-template-columns:340px 1fr; gap:28px; align-items:start;}
+  @media(max-width:860px){.app{grid-template-columns:1fr;}}
+
+  .panel{display:flex; flex-direction:column; gap:22px;}
+  .card{background:rgba(255,255,255,.45); border:1px solid var(--line); border-radius:18px; padding:18px;}
+  .card h2{font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; font-size:13px; letter-spacing:0; margin-bottom:14px; opacity:.85;}
+
+  .drop{
+    border:2px dotted var(--terracota); border-radius:16px; padding:26px 16px; text-align:center;
+    cursor:pointer; transition:.15s; font-size:14px;
+  }
+  .drop:hover,.drop.drag{background:rgba(255,56,0,.08); border-color:var(--agni);}
+  .drop .mono{font-size:15px; display:block; margin-bottom:6px;}
+  .drop small{opacity:.6;}
+  input[type=file]{display:none;}
+
+  .seg{display:flex; gap:6px;}
+  .seg button{
+    flex:1; font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; font-size:12px;
+    padding:10px 4px; border:1px solid var(--terracota); background:transparent; color:var(--terracota);
+    border-radius:999px; cursor:pointer; transition:.15s;
+  }
+  .seg button.on{background:var(--terracota); color:var(--trickster);}
+
+  .row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+  .row:last-child{margin-bottom:0;}
+  label.lbl{font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; font-size:11px; opacity:.8;}
+  .val{font-family:'Gaisyr','Space Mono',monospace; font-size:11px; opacity:.6; min-width:44px; text-align:right;}
+  input[type=range]{flex:1; accent-color:var(--agni); height:20px;}
+
+  .swatches{display:flex; gap:8px;}
+  .sw{width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; box-shadow:0 0 0 1px var(--line);}
+  .sw.on{border-color:var(--agni);}
+
+  .toggle{display:flex; align-items:center; gap:10px; cursor:pointer;}
+  .toggle input{display:none;}
+  .toggle .tk{width:42px; height:24px; border-radius:999px; background:var(--line); position:relative; transition:.15s;}
+  .toggle .tk::after{content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.15s;}
+  .toggle input:checked + .tk{background:var(--agni);}
+  .toggle input:checked + .tk::after{transform:translateX(18px);}
+
+  .btns{display:flex; flex-direction:column; gap:10px;}
+  .btn{
+    font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; font-size:13px; letter-spacing:-.01em;
+    padding:14px; border-radius:999px; border:none; cursor:pointer; transition:.15s;
+  }
+  .btn.primary{background:var(--agni); color:#fff;}
+  .btn.primary:hover{filter:brightness(1.06);}
+  .btn.ghost{background:transparent; border:1px solid var(--terracota); color:var(--terracota);}
+  .btn.ghost:hover{background:rgba(103,41,9,.06);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  .stage{
+    background:repeating-conic-gradient(#d5d0cc 0% 25%, #ccc6c1 0% 50%) 50% / 28px 28px;
+    border-radius:18px; border:1px solid var(--line); padding:20px;
+    display:flex; align-items:center; justify-content:center; min-height:60vh; position:relative;
+  }
+  #preview{max-width:100%; max-height:74vh; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,.22); cursor:grab; touch-action:none;}
+  #preview.grabbing{cursor:grabbing;}
+  .hint{position:absolute; left:20px; bottom:16px; font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; font-size:10px; opacity:.55; color:var(--terracota);}
+  .empty{font-family:'Gaisyr','Space Mono',monospace; text-transform:uppercase; opacity:.4; font-size:14px; text-align:center;}
+</style>
+</head>
+<body>
+  <header>
+    <span class="logo">ASHRAM</span>
+    <span class="sub mono">Mandala Generator</span>
+  </header>
+
+  <div class="app">
+    <div class="panel">
+      <div class="card">
+        <h2>1 · Фото</h2>
+        <label class="drop" id="drop">
+          <span class="mono">Загрузить фото</span>
+          <small>перетащи сюда или кликни</small>
+          <input type="file" id="file" accept="image/*" />
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>2 · Формат</h2>
+        <div class="seg" id="formats">
+          <button data-fmt="post" class="on">Пост<br>1080×1440</button>
+          <button data-fmt="story">Сторис<br>1080×1920</button>
+          <button data-fmt="deck">Преза<br>1920×1080</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3 · Кроп · избегай грязи по швам</h2>
+        <div class="row">
+          <label class="lbl">Масштаб</label>
+          <input type="range" id="zoom" min="100" max="320" value="120" />
+          <span class="val" id="zoomVal">1.20×</span>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="reset" style="flex:1; font-size:11px; padding:9px;">Сбросить кроп</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4 · Логотип</h2>
+        <div class="row">
+          <label class="toggle"><input type="checkbox" id="logoOn" checked/><span class="tk"></span></label>
+          <label class="lbl" style="flex:1">Наложить лого</label>
+        </div>
+        <div class="row">
+          <label class="lbl">Цвет</label>
+          <div class="swatches" id="logoColors">
+            <div class="sw on" data-c="#FFE731" style="background:#FFE731"></div>
+            <div class="sw" data-c="#FFFFFF" style="background:#FFFFFF"></div>
+            <div class="sw" data-c="#672909" style="background:#672909"></div>
+            <div class="sw" data-c="#FF3800" style="background:#FF3800"></div>
+            <div class="sw" data-c="#000000" style="background:#000000"></div>
+          </div>
+        </div>
+        <div class="row">
+          <label class="lbl">Размер</label>
+          <input type="range" id="logoSize" min="8" max="100" value="24" />
+          <span class="val" id="logoSizeVal">24%</span>
+        </div>
+        <div class="row">
+          <label class="lbl">Позиция</label>
+          <div class="seg" style="flex:1" id="logoPos">
+            <button data-p="bottom" class="on">Низ</button>
+            <button data-p="center">Центр</button>
+            <button data-p="top">Верх</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn primary" id="dl" disabled>Скачать текущий PNG</button>
+        <button class="btn ghost" id="dlAll" disabled>Скачать все 3 формата</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <canvas id="preview" width="1080" height="1440" style="display:none"></canvas>
+      <div class="empty mono" id="empty">Загрузите фото,<br>чтобы собрать мандалу</div>
+      <div class="hint">Тяни фото, чтобы двигать кроп · швы сходятся по центру</div>
+    </div>
+  </div>
+
+<script>
+const FORMATS = {
+  post:  {w:1080, h:1440, label:'post'},
+  story: {w:1080, h:1920, label:'story'},
+  deck:  {w:1920, h:1080, label:'deck'},
+};
+
+// ASHRAM wordmark (viewBox 0 0 558 102) — fill recolored via %C token
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="558" height="102" viewBox="0 0 558 102" fill="none">
+<path d="M38.4209 0.144043H51.8822L90.1629 98.2996H76.8418L50.6202 28.1885C50.1528 26.7863 49.6387 25.384 49.0778 23.9818C48.3299 21.8317 47.5821 19.7752 46.8342 17.812C46.1798 15.8489 45.5722 14.026 45.0113 12.3434H44.8711C43.9363 15.0543 43.0015 17.812 42.0667 20.6165C41.2253 23.1405 40.3373 25.6645 39.4024 28.1885L13.4613 98.2996H0L38.4209 0.144043ZM22.0149 57.7754H68.148L72.2144 68.9931H17.9484L22.0149 57.7754Z" fill="%C"/>
+<path d="M185.627 0.144043H198.388V27.7129H247.606V0.144043H260.366V98.2996H247.606V39.0709H198.388V98.2996H185.627V0.144043Z" fill="%C"/>
+<path d="M277.486 0.144043H310.718C318.01 0.144043 324.366 0.798413 329.788 2.10715C335.304 3.32241 339.931 6.08012 343.67 10.3803C347.503 14.5869 349.42 20.8035 349.42 29.0298C349.42 35.667 347.643 41.2759 344.091 45.8565C340.539 50.3436 336.098 53.0078 330.77 53.8492L329.648 51.6056C335.818 53.0078 340.258 55.5318 342.969 59.1776C345.68 62.8234 347.036 67.6844 347.036 73.7607C347.036 79.9305 347.41 84.7915 348.158 88.3438C348.905 91.8026 350.401 94.981 352.645 97.8789L352.504 98.2996H338.622C336.94 95.7756 335.818 92.9711 335.257 89.8863C334.696 86.8014 334.416 81.8936 334.416 75.1629C334.416 70.6758 333.715 67.217 332.312 64.7865C331.004 62.2625 328.713 60.4396 325.442 59.3178C322.263 58.196 317.776 57.6351 311.98 57.6351H290.106V98.2996H277.486V0.144043ZM310.578 46.838C315.719 46.838 320.113 46.5109 323.759 45.8565C327.498 45.1086 330.63 43.4727 333.154 40.9487C335.678 38.4247 336.94 34.6387 336.94 29.5907C336.94 23.8883 335.678 19.6817 333.154 16.9707C330.63 14.2597 327.638 12.6238 324.18 12.0629C320.721 11.4086 316.234 11.0814 310.718 11.0814H290.106V46.838H310.578Z" fill="%C"/>
+<path d="M395.995 0.144043H409.457L447.737 98.2996H434.416L408.195 28.1885C407.727 26.7863 407.213 25.384 406.652 23.9818C405.904 21.8317 405.156 19.7752 404.409 17.812C403.754 15.8489 403.147 14.026 402.586 12.3434H402.445C401.511 15.0543 400.576 17.812 399.641 20.6165C398.8 23.1405 397.912 25.6645 396.977 28.1885L371.036 98.2996H357.574L395.995 0.144043ZM379.589 57.7754H425.722L429.789 68.9931H375.523L379.589 57.7754Z" fill="%C"/>
+<path d="M458.86 0.144043H477.229L497.982 55.672C499.664 60.0657 501.3 64.506 502.889 68.9931C503.918 71.8911 504.853 74.602 505.694 77.126C506.629 79.65 507.423 81.9871 508.078 84.1371H508.218C509.714 79.5566 511.303 74.8825 512.985 70.1149L518.174 55.672L538.927 0.144043H557.296V98.2996H544.816V38.9856C544.816 32.9093 545.05 25.4308 545.517 16.55H545.377C544.161 20.1023 543.04 23.3742 542.011 26.3656C540.983 29.2635 540.002 31.881 539.067 34.218C538.693 35.3398 538.412 36.1812 538.225 36.742C538.038 37.2095 537.758 37.9573 537.384 38.9856L514.528 98.2996H501.627L478.771 38.9856C478.023 36.929 477.462 35.3866 477.089 34.3583C476.715 33.33 476.154 31.7875 475.406 29.7309C474.378 26.7395 473.583 24.5427 473.022 23.1405C472.555 21.6448 471.807 19.448 470.779 16.55H470.638C470.825 20.2893 470.966 24.0753 471.059 27.908C471.152 31.5538 471.246 35.2463 471.339 38.9856V98.2996H458.86V0.144043Z" fill="%C"/>
+<path d="M133.787 101.521C126.308 101.521 119.484 100.306 113.314 97.8751C107.238 95.3511 102.377 91.5651 98.7314 86.5171C95.0856 81.3757 93.2627 75.1591 93.2627 67.8676L106.724 66.4654C106.724 74.1308 109.201 80.1137 114.156 84.4138C119.11 88.7139 125.514 90.864 133.366 90.864C138.508 90.864 143.042 90.3031 146.968 89.1814C150.988 87.9661 154.166 86.003 156.503 83.292C158.933 80.4876 160.149 76.7951 160.149 72.2145C160.149 69.0361 159.261 66.5121 157.484 64.6425C155.802 62.7728 153.512 61.3706 150.614 60.4358C147.716 59.4075 143.836 58.426 138.975 57.4911L128.038 55.2476C119.718 53.5649 113.174 51.3214 108.407 48.5169C103.733 45.7125 100.461 42.6276 98.5911 39.2622C96.815 35.8034 95.9269 31.924 95.9269 27.6238C95.9269 21.3605 97.6096 16.1723 100.975 12.0591C104.434 7.85247 108.781 4.81433 114.016 2.94469C119.344 0.981584 124.906 3.05176e-05 130.702 3.05176e-05C141.733 3.05176e-05 150.754 2.47729 157.765 7.4318C164.776 12.3863 168.796 20.3323 169.824 31.2696L156.643 33.6534C156.55 26.3618 154.166 20.7062 149.492 16.6865C144.911 12.5733 138.554 10.5167 130.422 10.5167C127.056 10.5167 123.691 11.1243 120.326 12.3396C117.054 13.5548 114.343 15.4245 112.193 17.9485C110.043 20.379 108.968 23.4171 108.968 27.0629C108.968 29.9608 109.902 32.4381 111.772 34.4947C113.735 36.4578 116.306 38.0937 119.484 39.4025C122.756 40.7112 126.542 41.7395 130.842 42.4874L141.78 44.4505C148.604 45.6657 154.213 47.1614 158.606 48.9376C163 50.6202 166.552 53.2377 169.263 56.79C171.974 60.3423 173.33 65.1566 173.33 71.2329C173.33 78.7114 171.413 84.6942 167.58 89.1814C163.841 93.6685 159.027 96.8468 153.138 98.7165C147.248 100.586 140.798 101.521 133.787 101.521Z" fill="%C"/>
+</svg>`;
+
+const state = {
+  img:null, fmt:'post', zoom:1.2, panX:0, panY:0,
+  logoOn:true, logoColor:'#FFE731', logoSize:0.24, logoPos:'bottom',
+  logoImg:null, logoColorCache:null,
+};
+
+const $=s=>document.querySelector(s);
+const preview=$('#preview'), pctx=preview.getContext('2d');
+
+function loadImage(src){
+  const im=new Image();
+  im.onload=()=>{ state.img=im; state.panX=0; state.panY=0; $('#empty').style.display='none'; preview.style.display='block'; $('#dl').disabled=false; $('#dlAll').disabled=false; render(); };
+  im.src=src;
+}
+
+// file handling
+const fileInput=$('#file'), drop=$('#drop');
+fileInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(f) readFile(f); });
+function readFile(f){ const r=new FileReader(); r.onload=()=>loadImage(r.result); r.readAsDataURL(f); }
+;['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');}));
+;['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag');}));
+drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('image')) readFile(f); });
+
+// logo image builder
+function ensureLogo(cb){
+  if(state.logoImg && state.logoColorCache===state.logoColor){ cb(state.logoImg); return; }
+  const svg=LOGO_SVG.split('%C').join(state.logoColor);
+  const im=new Image();
+  im.onload=()=>{ state.logoImg=im; state.logoColorCache=state.logoColor; cb(im); };
+  im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+
+// core: draw mandala + logo into ctx of size W×H
+function draw(ctx,W,H){
+  ctx.clearRect(0,0,W,H);
+  if(!state.img){ return; }
+  const qw=Math.ceil(W/2), qh=Math.ceil(H/2);
+  const img=state.img, w0=img.naturalWidth, h0=img.naturalHeight;
+  const baseScale=Math.max(qw/w0, qh/h0);
+  const eff=baseScale*state.zoom;
+  let regionW=qw/eff, regionH=qh/eff;
+  regionW=Math.min(regionW,w0); regionH=Math.min(regionH,h0);
+  let cx=w0/2+state.panX, cy=h0/2+state.panY;
+  cx=Math.max(regionW/2, Math.min(w0-regionW/2, cx));
+  cy=Math.max(regionH/2, Math.min(h0-regionH/2, cy));
+  const sx=cx-regionW/2, sy=cy-regionH/2;
+
+  // build tile once
+  const tile=document.createElement('canvas'); tile.width=qw; tile.height=qh;
+  tile.getContext('2d').drawImage(img, sx,sy,regionW,regionH, 0,0, qw,qh);
+
+  // 4 quadrants with mirroring
+  ctx.imageSmoothingQuality='high';
+  ctx.save(); ctx.drawImage(tile,0,0); ctx.restore();                                  // TL
+  ctx.save(); ctx.translate(W,0); ctx.scale(-1,1); ctx.drawImage(tile,0,0); ctx.restore();          // TR
+  ctx.save(); ctx.translate(0,H); ctx.scale(1,-1); ctx.drawImage(tile,0,0); ctx.restore();          // BL
+  ctx.save(); ctx.translate(W,H); ctx.scale(-1,-1); ctx.drawImage(tile,0,0); ctx.restore();         // BR
+
+  // logo
+  if(state.logoOn && state.logoImg && state.logoColorCache===state.logoColor){
+    const lw=W*state.logoSize, lh=lw*(102/558);
+    const lx=(W-lw)/2;
+    let ly;
+    if(state.logoPos==='bottom') ly=H-lh-H*0.05;
+    else if(state.logoPos==='top') ly=H*0.05;
+    else ly=(H-lh)/2;
+    ctx.drawImage(state.logoImg, lx,ly,lw,lh);
+  }
+}
+
+function render(){
+  const {w,h}=FORMATS[state.fmt];
+  preview.width=w; preview.height=h;
+  if(state.logoOn){ ensureLogo(()=>draw(pctx,w,h)); }
+  else draw(pctx,w,h);
+}
+
+// controls
+$('#formats').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+  [...e.currentTarget.children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  state.fmt=b.dataset.fmt; render(); });
+
+$('#zoom').addEventListener('input',e=>{ state.zoom=e.target.value/100; $('#zoomVal').textContent=state.zoom.toFixed(2)+'×'; render(); });
+$('#reset').addEventListener('click',()=>{ state.zoom=1.2; state.panX=0; state.panY=0; $('#zoom').value=120; $('#zoomVal').textContent='1.20×'; render(); });
+
+$('#logoOn').addEventListener('change',e=>{ state.logoOn=e.target.checked; render(); });
+$('#logoColors').addEventListener('click',e=>{ const s=e.target.closest('.sw'); if(!s)return;
+  [...e.currentTarget.children].forEach(x=>x.classList.remove('on')); s.classList.add('on');
+  state.logoColor=s.dataset.c; render(); });
+$('#logoSize').addEventListener('input',e=>{ state.logoSize=e.target.value/100; $('#logoSizeVal').textContent=e.target.value+'%'; render(); });
+$('#logoPos').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+  [...e.currentTarget.children].forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  state.logoPos=b.dataset.p; render(); });
+
+// drag to pan
+let dragging=false, lastX=0, lastY=0;
+preview.addEventListener('pointerdown',e=>{ if(!state.img)return; dragging=true; lastX=e.clientX; lastY=e.clientY; preview.classList.add('grabbing'); preview.setPointerCapture(e.pointerId); });
+preview.addEventListener('pointermove',e=>{ if(!dragging)return;
+  const cssScale=preview.clientWidth/preview.width;
+  const {w,h}=FORMATS[state.fmt]; const qw=w/2, qh=h/2;
+  const img=state.img; const baseScale=Math.max(qw/img.naturalWidth, qh/img.naturalHeight); const eff=baseScale*state.zoom;
+  const dx=(e.clientX-lastX)/cssScale/eff; const dy=(e.clientY-lastY)/cssScale/eff;
+  state.panX-=dx; state.panY-=dy; lastX=e.clientX; lastY=e.clientY; render(); });
+;['pointerup','pointercancel'].forEach(ev=>preview.addEventListener(ev,()=>{ dragging=false; preview.classList.remove('grabbing'); }));
+
+// export
+function exportFmt(fmt){
+  const {w,h}=FORMATS[fmt];
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const cx=c.getContext('2d');
+  const doDraw=()=>{ draw(cx,w,h); c.toBlob(b=>{ const a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download=`ashram_mandala_${fmt}_${w}x${h}.png`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000); },'image/png'); };
+  if(state.logoOn) ensureLogo(doDraw); else doDraw();
+}
+$('#dl').addEventListener('click',()=>exportFmt(state.fmt));
+$('#dlAll').addEventListener('click',()=>{ ['post','story','deck'].forEach((f,i)=>setTimeout(()=>exportFmt(f), i*400)); });
+</script>
+</body>
+</html>
